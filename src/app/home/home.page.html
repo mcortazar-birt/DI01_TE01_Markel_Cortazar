@@ -1,0 +1,174 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Guía de Restaurantes Euskadi</ion-title>
+    <ion-buttons slot="end">
+      <!-- Botón que llama al método cargarDatos() del componente -->
+       @if(!hayDatos){
+        <ion-button (click)="cargarDatos()" color="primary" fill="solid">Cargar datos</ion-button>
+       }@else{
+         <ion-button (click)="cargarDatos()">Cargar datos</ion-button>
+       }
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+
+  <!-- TODO - Mostrar un mensaje informativo cuando no hay datos cargados (hayDatos() devuelve false)
+       PISTA: Usa @if para comprobar la condición y dentro coloca un ion-item con un ion-label
+              explicando al usuario que pulse "Cargar datos" para empezar -->
+  @if(!hayDatos){
+    <ion-item color="light" lines="inset">
+      <ion-label><b>Pulsa Cargar Datos para ver los restaurantes disponibles. Una vez cargados, podrás filtrar por nombre, territorio y localidad.</b></ion-label>
+    </ion-item>
+  }
+  <!-- Filtros -->
+  <ion-grid>
+    <ion-row class="ion-align-items-center ion-justify-content-start">
+
+      <!-- Filtro de búsqueda por nombre -->
+      <ion-col size="12" size-md="3">
+        <ion-item>
+          <!-- TODO - Añadir un ion-input con:
+               · label y placeholder
+               · [value] enlazado al signal textoBusqueda()
+               · [disabled] enlazado a !hayDatos() para desactivarlo si no hay datos
+               · (ionInput) que actualice el signal textoBusqueda usando .set() con el valor del evento ($event.detail.value)
+                 PISTA: usa ?? '' para evitar valores null o undefined -->
+          <ion-input label="Buscar" label-placement="start" [value]="textoBusqueda()" (ionInput)="textoBusqueda.set($event.detail.value ?? '')" placeholder="Buscar por nombre" [disabled]="!hayDatos"></ion-input>
+        </ion-item>
+      </ion-col>
+
+      <!-- Filtro de territorio -->
+      <ion-col size="12" size-md="3">
+        <!-- NOTA: Usamos el label del propio ion-select (no un ion-label externo) para que al hacer
+             click en cualquier parte del ion-item se abra el selector, mejorando la usabilidad -->
+        <ion-item>
+          <!-- TODO - Añadir un ion-select con:
+               · label="Territorio", labelPlacement="start" y placeholder="Todos"
+               · [value] enlazado a territorioSeleccionado()
+               · [disabled] enlazado a !hayDatos()
+               · (ionChange) que llame a onTerritorioChange() pasándole $event.detail.value
+               Dentro del ion-select, recorre con @for la lista territoriosFiltrados() y genera
+               un ion-select-option por cada territorio (usa track t) -->
+               <ion-select label="Territorio" label-placement="start" [value]="territorioSeleccionado()" (ionChange)="onTerritorioChange($event.detail.value)" placeholder="Todos" [disabled]="!hayDatos">
+                  @for(territorio of territoriosFiltrados(); track territorio){
+                    <ion-select-option>{{territorio}}</ion-select-option>
+                  }
+               </ion-select>
+        </ion-item>
+      </ion-col>
+
+      <!-- Filtro de localidad (dependiente del territorio seleccionado) -->
+      <ion-col size="12" size-md="6">
+        <!-- NOTA: Igual que en territorio, el label va dentro del ion-select para mejorar la usabilidad -->
+        <!-- NOTA: Cuando hay muchas localidades seleccionadas el texto se recorta con "...",
+             por eso se usa [title] para mostrar un tooltip con todas ellas al pasar el ratón -->
+        <ion-item>
+          <!-- TODO - Añadir un ion-select con:
+               · label="Localidad", labelPlacement="start" y placeholder="Todas"
+               · multiple="true" para permitir selección múltiple
+               · cancelText="Cancelar" y okText="Aceptar" para los botones del diálogo
+               · [value] enlazado a localidadesSeleccionadas()
+               · [title] con un ternario: si localidadesSeleccionadas().length > 0 mostrar su lista
+                 unida con join(', '), si no mostrar 'Todas'
+               · [disabled] enlazado a !hayDatos()
+               · (ionChange) que llame a onLocalidadesChange() pasándole $event.detail.value
+               Dentro del ion-select, recorre con @for la lista localidadesFiltradasPorTerritorio()
+               y genera un ion-select-option por cada localidad (usa track loc) -->
+          <ion-select label="Localidad" label-placement="start" placeholder="Todas" [disabled]="!hayDatos" multiple="true" cancelText="Cancelar" okText="Aceptar" 
+                      [value]="localidadesSeleccionadas()" [title]="localidadesSeleccionadas().length > 0 ? localidadesSeleccionadas().join(', ') : 'Todas'" (ionChange)="onLocalidadesChange($event.detail.value)">
+                      @for(localidad of localidadesFiltradasPorTerritorio(); track localidad){
+                        <ion-select-option>{{localidad}}</ion-select-option>
+                      }
+          </ion-select>
+        </ion-item>
+      </ion-col>
+    </ion-row>
+  </ion-grid>
+
+  <!-- TODO - Mostrar un contador de resultados solo cuando hayDatos() sea true
+       El mensaje debe indicar cuántos restaurantes se están mostrando sobre el total:
+       "Mostrando X de Y restaurantes"
+       · X → restaurantesFiltrados().length
+       · Y → restaurantesCargados().length
+       PISTA: Añade dentro un @if adicional para mostrar el texto "· Prueba a cambiar los filtros"
+              cuando no hay resultados (length === 0) Y además hay filtros activos (hayFiltrosActivos()) -->
+  @if (hayDatos) {
+    <ion-item>
+      <ion-label>
+        Mostrando {{restaurantesFiltrados().length}} de {{restaurantesCargados().length}} restaurantes
+        @if(restaurantesFiltrados().length === 0 && hayFiltrosActivos()) {
+          . Prueba a cambiar los filtros
+        }
+      </ion-label>
+    </ion-item>  
+    
+    
+    <!-- TODO - Mostrar la tabla de restaurantes cuando restaurantesFiltrados().length > 0
+    La tabla debe tener las columnas: Nombre, Localidad, Dirección, Teléfono, Territorio, Web, Estrellas Michelin, Soles Repsol
+    Usa @for para recorrer restaurantesFiltrados() y generar una fila <tr> por restaurante (track r.documentName)
+      · Columna Web: usa @if(r.web) para mostrar un <a> con [href]="r.web", target="_blank" y [title]="r.web"
+        · Columna Estrellas Michelin: llama a estrellasMichelin(r); si es > 0 muestra el número, si no muestra '-'
+        PISTA: puedes usar el operador ternario directamente en la interpolación {{ ... ? ... : '-' }}
+        · Columna Soles Repsol: igual que Estrellas Michelin pero con repsolSoles(r) -->
+  @if (restaurantesFiltrados().length > 0) {
+    <div class="table-wrapper">
+      <table class="restaurantes-table">
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Localidad</th>
+            <th>Dirección</th>
+            <th>Teléfono</th>
+            <th>Territorio</th>
+            <th>Web</th>
+            <th>Estrellas Michelin</th>
+            <th>Soles Repsol</th>
+          </tr>
+      </thead>
+      <tbody>
+        @for (r of restaurantesFiltrados(); track r.documentName + r.locality) {
+          <tr>
+            <th>{{r.documentName}}</th>
+            <th>{{r.locality}}</th>
+            <th>{{r.address}}</th>
+            <th>{{r.phone}}</th>
+            <th>{{r.territory}}</th>
+            <th>
+              @if(!!r.web){
+                <a [href]="r.web" target="_blank" [title]="r.web">Enlace</a> 
+              }
+            </th>
+            <th> 
+              {{estrellasMichelin(r) > 0 ? r.michelinStar : " - "}}
+            </th>
+            <th> 
+              {{repsolSoles(r) > 0 ? r.repsolSun : " - "}} 
+            </th>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  }@else{
+    <!-- TODO - Añadir un bloque @else al @if anterior (cuando no hay resultados filtrados)
+    Dentro, usa otro @if (hayDatos()) para mostrar un mensaje de aviso (color="warning")
+    indicando que ningún restaurante coincide con los filtros.
+    Incluye un elemento clicable que llame a limpiarTodosFiltros() para resetear los filtros -->
+    @if (hayDatos) {
+
+      <ion-item>
+        <ion-label color="warning">
+          Ningún restaurante coincide con los filtros.
+            <ion-button (click)="limpiarTodosFiltros()" fill="solid" color="warning">
+              Resetear Filtros
+            </ion-button>
+        </ion-label>
+      </ion-item>
+
+    }
+    
+  }
+}
+</ion-content>
